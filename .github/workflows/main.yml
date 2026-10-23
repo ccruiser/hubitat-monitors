@@ -6,6 +6,16 @@ name: Groovy syntax check
 # compile standalone; this catches syntax and structural errors
 # before HPM or a hub ever sees the code. It cannot validate
 # Hubitat runtime behavior - only the hub can do that.
+#
+# Structure note (Oct 22, 2026): this is NOT a container job.
+# Run #1 of the container-job version failed in the checkout step
+# itself - actions/checkout died the same second it started,
+# right after the groovy:4-jdk17 container initialized fine, and
+# the groovyc step never ran (the language image is too minimal
+# for checkout's needs). So checkout runs on the runner as usual,
+# and the Groovy image is used per-step via docker run with the
+# workspace mounted. Same pinned toolchain (Groovy 4 line, JDK
+# 17), same check.
 
 on:
   workflow_dispatch:
@@ -22,27 +32,28 @@ on:
 jobs:
   groovyc:
     runs-on: ubuntu-latest
-    container:
-      image: groovy:4-jdk17
     steps:
       - uses: actions/checkout@v4
       - name: Compile-check all Groovy sources
         shell: bash
         run: |
-          set -euo pipefail
-          mkdir -p /tmp/groovy-out
-          fail=0
-          count=0
-          while IFS= read -r -d '' f; do
-            count=$((count + 1))
-            echo "== groovyc $f"
-            if ! groovyc -d /tmp/groovy-out "$f"; then
-              fail=1
-            fi
-          done < <(find . -path ./.git -prune -o -name '*.groovy' -print0 | sort -z)
-          echo "Checked $count Groovy file(s)."
-          if [ "$count" -eq 0 ]; then
-            echo "No Groovy files found - failing so the check cannot pass vacuously."
-            exit 1
-          fi
-          exit $fail
+          docker run --rm -v "$GITHUB_WORKSPACE:/src" -w /src \
+            groovy:4-jdk17 bash -c '
+              set -euo pipefail
+              mkdir -p /tmp/groovy-out
+              fail=0
+              count=0
+              while IFS= read -r -d "" f; do
+                count=$((count + 1))
+                echo "== groovyc $f"
+                if ! groovyc -d /tmp/groovy-out "$f"; then
+                  fail=1
+                fi
+              done < <(find . -path ./.git -prune -o -name "*.groovy" -print0 | sort -z)
+              echo "Checked $count Groovy file(s)."
+              if [ "$count" -eq 0 ]; then
+                echo "No Groovy files found - failing so the check cannot pass vacuously."
+                exit 1
+              fi
+              exit $fail
+            '
