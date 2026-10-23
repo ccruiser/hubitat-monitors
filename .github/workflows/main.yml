@@ -8,15 +8,16 @@ name: Groovy syntax check
 # Hubitat runtime behavior - only the hub can do that.
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
       - "**/*.groovy"
-      - ".github/workflows/groovy-syntax.yml"
+      - ".github/workflows/main.yml"
   pull_request:
     paths:
       - "**/*.groovy"
-      - ".github/workflows/groovy-syntax.yml"
+      - ".github/workflows/main.yml"
 
 jobs:
   groovyc:
