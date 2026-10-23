@@ -2,7 +2,7 @@
 
 Hubitat Hub Code Used for Monitoring
 
-Casey Cruise's Hubitat packages, installable with
+Hubitat packages, installable with
 [Hubitat Package Manager](https://hubitatcommunity.com/) (HPM).
 
 ## Adding this repository to HPM
