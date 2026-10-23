@@ -1,0 +1,47 @@
+name: Groovy syntax check
+
+# Compile-checks every Hubitat Groovy source in this repo with a
+# stock groovyc. The sources are deliberately written with dynamic
+# typing and no references to Hubitat platform classes, so they
+# compile standalone; this catches syntax and structural errors
+# before HPM or a hub ever sees the code. It cannot validate
+# Hubitat runtime behavior - only the hub can do that.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**/*.groovy"
+      - ".github/workflows/groovy-syntax.yml"
+  pull_request:
+    paths:
+      - "**/*.groovy"
+      - ".github/workflows/groovy-syntax.yml"
+
+jobs:
+  groovyc:
+    runs-on: ubuntu-latest
+    container:
+      image: groovy:4-jdk17
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile-check all Groovy sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/groovy-out
+          fail=0
+          count=0
+          while IFS= read -r -d '' f; do
+            count=$((count + 1))
+            echo "== groovyc $f"
+            if ! groovyc -d /tmp/groovy-out "$f"; then
+              fail=1
+            fi
+          done < <(find . -path ./.git -prune -o -name '*.groovy' -print0 | sort -z)
+          echo "Checked $count Groovy file(s)."
+          if [ "$count" -eq 0 ]; then
+            echo "No Groovy files found - failing so the check cannot pass vacuously."
+            exit 1
+          fi
+          exit $fail
