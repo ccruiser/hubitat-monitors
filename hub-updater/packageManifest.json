@@ -1,0 +1,22 @@
+{
+ "packageName": "Plumcrest Hub Updater",
+ "author": "Casey Cruise",
+ "version": "0.2.2",
+ "minimumHEVersion": "2.3.8",
+ "dateReleased": "2026-10-23",
+ "category": "Utility",
+ "documentationLink": "",
+ "videoLink": "",
+ "releaseNotes": "SPIKE v0.2.2 (backfill of the Oct 23, 2026 standalone-tested build). Live-proved on the Living Room hub: detection leg answers driver calls at http://127.0.0.1:8080 (status IDLE); the arm timer set a deadline, fired unaided, and disarmed itself (\"arm window expired\", state cleared). Changes since v0.1.0: timed arm on the fleet upgrader model (arm = ceiling, never a trigger; disarm also on successful apply and at boot if expired); sandbox fixes (no System.currentTimeMillis, no URLEncoder - stock groovyc cannot see these; repo CI now sandbox-lints); applyArmedUntil shows \"off\" when disarmed instead of a stale deadline. Unproven: apply with an update pending; behavior on a Hub Login Security enabled hub.",
+ "drivers": [
+  {
+   "id": "26d3dd9f-05b3-4208-b158-087fa4ce2243",
+   "name": "Plumcrest Hub Updater",
+   "namespace": "plumcrest",
+   "location": "https://raw.githubusercontent.com/ccruiser/hubitat-monitors/refs/heads/main/hub-updater/PlumcrestHubUpdater.groovy",
+   "required": true,
+   "primary": false
+  }
+ ],
+ "apps": []
+}

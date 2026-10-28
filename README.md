@@ -51,14 +51,56 @@ Attributes stay `unknown` until the first cloud backup after
 install (backups run nightly). The device page's
 `setCloudBackup` command can be run by hand to test consumers.
 
+### Plumcrest Hub Updater (`hub-updater/`) — SPIKE
+
+Gives platform updates the fleet's upgrader shape (detect →
+propose → human go → apply → verify) using the hub's own internal
+update endpoints, reverse-engineered from the Check for Updates
+page: `/hub/cloud/checkForUpdate`,
+`/hub/cloud/updatePlatform?...`, `/hub/cloud/checkUpdateStatus`,
+`/hub/cloud/clearUpdateStatus`.
+
+Commands (human-invoked only; nothing is scheduled):
+`checkForUpdate`, `refreshUpdateStatus`, `clearUpdateStatus`,
+and `applyUpdate`. Apply is double-gated: the `enableApply`
+preference is a **timed arm** (`applyArmMinutes`, default 60)
+that the driver switches off itself when the window closes,
+after a successful apply, or at boot if expired — and apply
+only ever applies the exact version a prior check offered.
+Maker API can invoke the commands but **cannot arm** (Maker
+cannot set preferences), so authorizing the device never hands
+over an armed apply.
+
+Proven live (Living Room hub, Oct 23, 2026): detection leg over
+`http://127.0.0.1:8080`; arm timer set, fired, and self-disarmed.
+Unproven: a real apply (needs an update pending) and any call on
+a Hub Login Security enabled hub.
+
+Setup: Devices → Add virtual device → type **Plumcrest Hub
+Updater** (namespace `plumcrest`). Optionally authorize it in a
+Maker API instance to read `updateStatus` / `latestVersion` /
+`lastResult` off-hub.
+
 ## Development
 
-Every `.groovy` file is compile-checked by GitHub Actions on
-push and pull request (`.github/workflows/groovy-syntax.yml`,
-stock `groovyc` in a Groovy container). The sources are written
-with dynamic typing and no Hubitat platform class references so
-they compile standalone; the check catches syntax and structural
-errors, not Hubitat runtime behavior.
+Every `.groovy` file is checked by GitHub Actions on push and
+pull request (`.github/workflows/main.yml`, Groovy container):
+
+1. **Compile check** — stock `groovyc`. The sources are written
+   with dynamic typing and no Hubitat platform class references
+   so they compile standalone.
+2. **Sandbox lint** — `ci/HubitatLint.groovy` compiles each
+   hub-bound source through a `SecureASTCustomizer` configured
+   with Hubitat's known restrictions. This exists because
+   `groovyc` passed `System.currentTimeMillis()` and
+   `URLEncoder` calls that the hub's sandbox rejected on save
+   (Hub Updater v0.2.0, Oct 23, 2026); the lint reproduces that
+   class of verdict locally and in CI. It is an approximation
+   of Hubitat's whitelist, not the hub itself — a pass means
+   "no known violation."
+
+Neither check validates Hubitat runtime behavior; only the hub
+can do that.
 
 Versions live in each package's `packageManifest.json`
 (`version` + `releaseNotes`); bump them with any code change so
