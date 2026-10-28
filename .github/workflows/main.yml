@@ -1,11 +1,24 @@
-name: Groovy syntax check
+name: Groovy checks
 
-# Compile-checks every Hubitat Groovy source in this repo with a
-# stock groovyc. The sources are deliberately written with dynamic
-# typing and no references to Hubitat platform classes, so they
-# compile standalone; this catches syntax and structural errors
-# before HPM or a hub ever sees the code. It cannot validate
-# Hubitat runtime behavior - only the hub can do that.
+# Two checks over this repo's Groovy sources, both in the pinned
+# Groovy 4 / JDK 17 image:
+#
+# 1. Compile check (stock groovyc) over every .groovy file. The
+#    hub-bound sources are deliberately written with dynamic
+#    typing and no references to Hubitat platform classes, so
+#    they compile standalone; this catches syntax and structural
+#    errors before HPM or a hub ever sees the code.
+#
+# 2. Sandbox lint (ci/HubitatLint.groovy) over every hub-bound
+#    .groovy file (all except ci/ itself): compiles each source
+#    through a SecureASTCustomizer configured with Hubitat's
+#    known sandbox restrictions. Added Oct 23, 2026 after groovyc
+#    passed System.currentTimeMillis() and URLEncoder calls in
+#    Hub Updater v0.2.0 that the hub's sandbox rejected on save -
+#    stock groovyc cannot see that class of error. The lint is
+#    an approximation of Hubitat's whitelist, not the hub: a
+#    pass means "no known violation." Neither check validates
+#    Hubitat runtime behavior - only the hub can do that.
 #
 # Structure note (Oct 22, 2026): this is NOT a container job.
 # Run #1 of the container-job version failed in the checkout step
@@ -15,7 +28,7 @@ name: Groovy syntax check
 # for checkout's needs). So checkout runs on the runner as usual,
 # and the Groovy image is used per-step via docker run with the
 # workspace mounted. Same pinned toolchain (Groovy 4 line, JDK
-# 17), same check.
+# 17), same checks.
 
 on:
   workflow_dispatch:
@@ -56,4 +69,21 @@ jobs:
                 exit 1
               fi
               exit $fail
+            '
+      - name: Sandbox-lint hub-bound Groovy sources
+        shell: bash
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE:/src" -w /src \
+            groovy:4-jdk17 bash -c '
+              set -euo pipefail
+              files=()
+              while IFS= read -r -d "" f; do
+                files+=("$f")
+              done < <(find . -path ./.git -prune -o -path ./ci -prune -o -name "*.groovy" -print0 | sort -z)
+              echo "Sandbox-linting ${#files[@]} hub-bound Groovy file(s)."
+              if [ "${#files[@]}" -eq 0 ]; then
+                echo "No hub-bound Groovy files found - failing so the check cannot pass vacuously."
+                exit 1
+              fi
+              groovy ci/HubitatLint.groovy "${files[@]}"
             '
