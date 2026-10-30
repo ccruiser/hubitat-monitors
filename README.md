@@ -81,6 +81,58 @@ Updater** (namespace `plumcrest`). Optionally authorize it in a
 Maker API instance to read `updateStatus` / `latestVersion` /
 `lastResult` off-hub.
 
+### Plumcrest Hub Backup (`hub-backup/`)
+
+Pushes the hub's newest local backup off the hub to the Util2
+receiver, which stores it on the NAS (plumnas
+`home_lab_backups/hubitat`) — an off-hub copy of the hub
+database that survives the hub itself.
+
+Why it exists: with Hub Login Security enabled there is no
+supported way for an off-hub puller to authenticate (the hub
+allows a single local admin; a dedicated backup user is
+impossible), so the flow is a push from code running on the
+hub:
+
+- the driver logs in to the hub's own **Diagnostic Tool API**
+  (`127.0.0.1:8081`) with the hub MAC — the diag service's own
+  protocol; no platform credentials are stored or used,
+- downloads the newest store backup (normally the night's
+  scheduled 3:01 AM backup) into memory only — the bytes
+  never enter an attribute or state,
+- POSTs them to the token-gated receiver on Util2, and
+  counts the run `PUSH_OK` only when the receiver reports
+  storing exactly the bytes held; its SHA-256 lands in the
+  `lastSha256` attribute.
+
+Commands: `backupNow` (the nightly motion) and
+`createAndPushBackup` (fresh backup via the platform create
+URL with a 60-second timeout, plus a list/download fallback
+when the create lands but returns no bytes). Trigger it from
+a **dedicated** Maker API instance (never the collector's),
+Rule Machine, or the driver's optional built-in nightly
+schedule (default off; a scheduled failure retries once
+after 15 minutes). Status rides the attributes: `lastResult`,
+`health`, `lastFile`, `lastBytes`, `lastSha256`,
+`backupCount`, `newestBackup`.
+
+Setup after HPM installs the package:
+
+1. Devices → Add virtual device → type **Plumcrest Hub
+   Backup** (namespace `plumcrest`), name it e.g. "Hub
+   Backup".
+2. Preferences: this hub's MAC (Settings → Hub Details), the
+   receiver base URL, and the receiver token.
+3. Optionally authorize the device in its own Maker API
+   instance to trigger `backupNow` and read status off-hub.
+
+Proven live (Game Room C-8, platform 2.5.2.139, Hub Login
+Security on, Oct 30, 2026): `backupNow` fetched the day's
+scheduled backup (3,183,312 bytes); the receiver stored it
+byte-for-byte (SHA-256 verified). Unproven: the Living Room
+hub (rollout planned from this repo) and the built-in
+schedule route.
+
 ## Development
 
 Every `.groovy` file is checked by GitHub Actions on push and
